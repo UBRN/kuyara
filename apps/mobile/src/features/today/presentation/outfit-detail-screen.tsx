@@ -561,7 +561,7 @@ export function OutfitDetailScreen({
         const step = pendingChoice.current;
         pendingChoice.current = () => {
           step?.();
-          paintPiece?.(slot, garmentTypeId, swatchId);
+          pieceColors?.paint(slot, garmentTypeId, swatchId);
         };
       }
     }
@@ -588,24 +588,6 @@ export function OutfitDetailScreen({
     pieceColors?.clear();
     manualMix?.reset();
   };
-  // A colour is a paint only where it differs from the one the piece is drawn in without it.
-  const paintPiece = manualMix && pieceColors
-    ? (slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId) => {
-      // The board without this slot's paint: the other paints stay, since the rest resolves around them.
-      const others = Object.fromEntries(Object.entries(painted).filter(([other]) => other !== slot));
-      const unpainted = createTodayPresentation(state, language, hour12, temperatureUnit, now,
-        manualDetailOf(manualMix, composed, suggestionId, others));
-      const shown = unpainted.kind === 'loaded'
-        ? unpainted.suggestions.find(({ id }) => id === suggestionId) : undefined;
-      // A tile may swap the piece in the same tap, so the colour is judged against a piece of the
-      // painted type: the one drawn now, or kuyara's own, which keeps its colour when worn again.
-      const drawnAs = (palette: GarmentOutfitPalette) => (palette.pieces
-        .some((piece) => piece.slot === slot && piece.garmentTypeId === garmentTypeId)
-        ? garmentSwatchesBySlot(palette)[slot] : undefined);
-      pieceColors.paint(slot, garmentTypeId, swatchId, shown
-        ? drawnAs(detailPalette(shown)) ?? drawnAs(shown.keptColors?.original ?? shown.palette) : undefined);
-    }
-    : undefined;
   // An enlargement brings the strip into view by the least scroll that shows it, never so far
   // that the enlarged piece leaves the top. The board fits itself between the bars first.
   // The band the bars leave visible, both edges as the system lays them out: the header ends at
@@ -727,7 +709,7 @@ export function OutfitDetailScreen({
               nextPiece: copy.manualMix.nextPiece,
             }}
             onFocusChange={setFocusedSlot}
-            onPaint={paintPiece}
+            onPaint={manualMix && pieceColors ? pieceColors.paint : undefined}
             ownBadge={ownBadge}
             ownPieces={ownPieces}
             onReveal={revealStrip}

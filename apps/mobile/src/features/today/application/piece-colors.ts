@@ -41,12 +41,11 @@ export function pieceColorsFromParam(value: string | undefined): PaintedColors {
 export type PieceColors = Readonly<{
   colors: PaintedColors;
   /**
-   * Paints the slot's piece; the colour only paints the drawing and never enters selection.
-   * `drawnSwatchId` is the swatch a piece of `garmentTypeId` is drawn in unpainted in the slot:
-   * that colour is no paint, so it changes nothing and clears the slot's earlier paint.
+   * Paints the slot's piece in the colour the reader chose; the colour only paints the drawing
+   * and never enters selection. Whether the paints change the outfit is the board's to say
+   * (`detailShowing`).
    */
-  paint: (slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId,
-    drawnSwatchId: GarmentSwatchId | undefined) => void;
+  paint: (slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId) => void;
   /** Forgets every painted colour: "Back to kuyara's pick". */
   clear: () => void;
 }>;
@@ -67,14 +66,14 @@ export function usePieceColors(
   const [state, setState] = useState<Readonly<{ key: string | null; paints: Paints }> | null>(null);
   const paints = state === null ? start : state.key === key ? state.paints : NO_PAINTS;
   const colors = useMemo(() => paintedColors(paints, garments), [garments, paints]);
-  const paint = useCallback((slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId,
-    drawnSwatchId: GarmentSwatchId | undefined) =>
-    setState((previous) => {
-      const paints = { ...(previous === null ? start : previous.key === key ? previous.paints : NO_PAINTS) };
-      if (swatchId === drawnSwatchId) delete paints[slot];
-      else paints[slot] = { garmentTypeId, swatchId };
-      return { key, paints };
-    }), [key, start]);
+  const paint = useCallback((slot: OutfitSlot, garmentTypeId: GarmentTypeId, swatchId: GarmentSwatchId) =>
+    setState((previous) => ({
+      key,
+      paints: {
+        ...(previous === null ? start : previous.key === key ? previous.paints : NO_PAINTS),
+        [slot]: { garmentTypeId, swatchId },
+      },
+    })), [key, start]);
   const clear = useCallback(() => setState({ key: null, paints: NO_PAINTS }), []);
   return useMemo(() => ({ colors, paint, clear }), [clear, colors, paint]);
 }

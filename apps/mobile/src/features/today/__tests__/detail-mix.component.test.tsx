@@ -85,13 +85,8 @@ test('a new compose and a step each start from the composed option as built', as
 test('a painted colour stays with the showing it was painted on', async () => {
   const hook = await renderMix();
   const [slot, garmentTypeId] = Object.entries(outfitGarments(mix(hook).outfit))[0];
-  const paint = async (swatchId: 'plum' | 'navy' = 'plum') => act(async () =>
-    hook.result.current.pieceColors.paint(slot as SwappableSlot, garmentTypeId, swatchId, 'navy'));
-  await paint();
-  expect(hook.result.current.pieceColors.colors).toEqual({ [slot]: 'plum' });
-  // The colour the piece is drawn in unpainted is no paint: it clears the earlier one.
-  await paint('navy');
-  expect(hook.result.current.pieceColors.colors).toEqual({});
+  const paint = async () => act(async () =>
+    hook.result.current.pieceColors.paint(slot as SwappableSlot, garmentTypeId, 'plum'));
   await paint();
   expect(hook.result.current.pieceColors.colors).toEqual({ [slot]: 'plum' });
   await composeThePick(hook);

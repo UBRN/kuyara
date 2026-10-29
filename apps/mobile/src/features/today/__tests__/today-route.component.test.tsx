@@ -5210,7 +5210,8 @@ describe('compose around chosen pieces on detail', () => {
     localDayKey: '2026-08-13', dressStyle: 'smart',
   }, pins);
 
-  function renderDetail(scenario: 'upToDate' | 'signedOut', outfitHistory?: RecommendationApplicationValue['outfitHistory']) {
+  function renderDetail(scenario: 'upToDate' | 'signedOut', outfitHistory?: RecommendationApplicationValue['outfitHistory'],
+    items: readonly WardrobeItem[] = []) {
     mockParams = { id: todayOutfitId(1) };
     const port = createInMemoryAccountScreens(accountScenarios[scenario]);
     const productAnalytics = createProductAnalytics();
@@ -5218,7 +5219,7 @@ describe('compose around chosen pieces on detail', () => {
       productAnalytics,
       profile: profileValue(),
       recommendation: recommendationReady(),
-      wardrobe: wardrobeValue(),
+      wardrobe: wardrobeValue({ state: { status: 'ready', items, isRefreshing: false, isMutating: false, refreshFailure: null } }),
       weather: weatherValue(),
       dressingDayKey: '2026-08-13',
       outfitHistory,
@@ -5308,6 +5309,36 @@ describe('compose around chosen pieces on detail', () => {
     // Back to kuyara's pick forgets the composed result.
     await fireEvent.press(screen.getByTestId('outfit-detail-reset-button'));
     expect(screen.queryByTestId('compose-result-position')).toBeNull();
+  });
+
+  // The colour the reader chose is the one drawn, whatever the composed pin or the other paints
+  // would have drawn: a Yours tile that swaps the piece back in its own colour keeps that colour.
+  test('a Yours piece chosen over a composed pin is drawn in its own colour', async () => {
+    mockAccountsOpen = true;
+    const owned = (id: string, category: WardrobeItem['category'], garmentTypeId: string, colorId: string) =>
+      wardrobeItem({ id, category, garmentTypeId: garmentTypeId as WardrobeItem['garmentTypeId'],
+        colorChoice: { kind: 'option', id: colorId } as WardrobeItem['colorChoice'] });
+    const { result } = renderDetail('upToDate', undefined, [
+      owned('own-jeans', 'bottom', 'jeans', 'plum'), owned('own-jacket', 'outerwear', 'rain_jacket', 'navy')]);
+    const screen = await result;
+    await fireEvent.press(await screen.findByTestId('compose-entry-row'));
+    await fireEvent.press(screen.getByTestId('compose-piece-outer_layer-rain_jacket'));
+    await fireEvent.press(screen.getByTestId('compose-color-outer_layer-mustard'));
+    await fireEvent.press(screen.getByTestId('compose-build'));
+    expect(await screen.findByTestId('compose-result-position')).toBeOnTheScreen();
+    await fireEvent(screen.getByTestId('outfit-detail-content'), 'layout',
+      { nativeEvent: { layout: { width: 358, height: 1000, x: 0, y: 0 } } });
+    const activate = (slot: string) => fireEvent(screen.getByTestId(`outfit-detail-board-piece-${slot}`),
+      'accessibilityAction', { nativeEvent: { actionName: 'activate' } });
+    await activate('outer_layer');
+    await fireEvent.press(screen.getByTestId('outfit-detail-board-strip-tile-rain_trench'));
+    await fireEvent.press(screen.getByTestId('outfit-detail-board-strip-done'));
+    await activate('bottom');
+    await fireEvent.press(screen.getByTestId('outfit-detail-board-strip-own-own-jeans'));
+    await fireEvent.press(screen.getByTestId('outfit-detail-board-strip-done'));
+    await activate('outer_layer');
+    await fireEvent.press(screen.getByTestId('outfit-detail-board-strip-own-own-jacket'));
+    expect(screen.getByTestId('outfit-detail-board-strip-color-navy').props.accessibilityState.selected).toBe(true);
   });
 
   test('a composed result has no like or dislike, and back to kuyara\'s pick asks again', async () => {

@@ -11,7 +11,9 @@ import { useManualMix } from '@/features/recommendation/application/use-manual-m
 import { outfitGarments, slotCandidates } from '@/features/recommendation/domain/manual-mix';
 import type { WornPieceColors } from '@/features/recommendation/domain/outfit-history';
 import { todayScreenState } from '@/features/today/__tests__/fixtures';
-import { usePieceColors } from '@/features/today/application/piece-colors';
+import { detailShowing } from '@/features/today/application/composed-detail';
+import { countedPieceColors, usePieceColors } from '@/features/today/application/piece-colors';
+import { detailBoard } from '@/features/today/presentation/detail-board';
 import { OutfitDetailScreen } from '@/features/today/presentation/outfit-detail-screen';
 import { createTodayPresentation } from '@/features/today/presentation/today-presentation';
 import { closetSolidForBoardSwatch } from '@/features/wardrobe/domain/closet-board-swatch';
@@ -118,7 +120,11 @@ function Detail({ language, wardrobeItems, onWoreThis }: Readonly<{
   const manualMix = useManualMix(pick, recommendation.status === 'recommended' ? recommendation.requirements : null,
     'womens');
   const garments = useMemo(() => (manualMix ? outfitGarments(manualMix.outfit) : {}), [manualMix]);
-  const pieceColors = usePieceColors(pick.optionId, garments);
+  // The route's colours: paints count only while the board draws otherwise than unpainted.
+  const painted = usePieceColors(pick.optionId, garments);
+  const counted = detailShowing(pick, null, manualMix, painted.colors,
+    detailBoard(todayScreenState, language, false, 'celsius', fixtureNow, pick.optionId)).painted;
+  const pieceColors = countedPieceColors(painted, counted);
   return (
     <OutfitDetailScreen
       language={language}
