@@ -1,11 +1,12 @@
-import { Tabs, useLocalSearchParams } from 'expo-router';
+import { router, Tabs, useLocalSearchParams } from 'expo-router';
 import { renderRouter } from 'expo-router/testing-library';
-import { screen } from '@testing-library/react-native';
+import { act, screen } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { Text } from 'react-native';
 
 import * as profileStackLayout from '@/app/(tabs)/(profile)/_layout';
 import WardrobeNewRoute from '@/app/(tabs)/(profile)/wardrobe/new';
+import { WARDROBE_NAME_MAX_LENGTH } from '@/features/wardrobe/domain/wardrobe-name';
 import { LocalizationContext } from '@/localization/localization-context';
 import { messages } from '@/localization/messages';
 import { lightTheme } from '@/theme/theme';
@@ -22,9 +23,17 @@ jest.mock('@/features/wardrobe/presentation/wardrobe-item-routes', () => {
   const { Text: MockText } = jest.requireActual<typeof import('react-native')>('react-native');
   const { useLocalSearchParams: useParams } = jest.requireActual<typeof import('expo-router')>('expo-router');
   return {
-    WardrobeNewItemRoute: ({ initialPhrase }: { initialPhrase?: string }) => {
+    WardrobeNewItemRoute: ({ initialPhrase, initialPhraseArrival }: {
+      initialPhrase?: string;
+      initialPhraseArrival?: number;
+    }) => {
       const { phrase } = useParams<{ phrase?: string }>();
-      return <MockText>{`Form ${initialPhrase ?? '-'} route ${phrase ?? '-'}`}</MockText>;
+      return (
+        <>
+          <MockText>{`Form ${initialPhrase ?? '-'} route ${phrase ?? '-'}`}</MockText>
+          <MockText>{`Arrival ${initialPhraseArrival ?? '-'}`}</MockText>
+        </>
+      );
     },
   };
 });
@@ -72,4 +81,29 @@ it('the add route hands the form no phrase when the link repeats it', async () =
   await renderNew('/wardrobe/new?phrase=gomlek&phrase=kazak');
 
   expect(await screen.findByText('Form - route -')).toBeOnTheScreen();
+});
+
+it('the add route hands the form a phrase cut to the longest name the form takes', async () => {
+  await renderNew(`/wardrobe/new?phrase=${'a'.repeat(300)}%20gomlek`);
+
+  expect(await screen.findByText(`Form ${'a'.repeat(WARDROBE_NAME_MAX_LENGTH)} route -`)).toBeOnTheScreen();
+});
+
+it('a second phrase that reaches the open add route reaches the form too', async () => {
+  await renderNew('/wardrobe/new?phrase=gomlek');
+  expect(await screen.findByText('Form gomlek route -')).toBeOnTheScreen();
+
+  await act(async () => router.navigate('/wardrobe/new?phrase=kazak'));
+
+  expect(await screen.findByText('Form kazak route -')).toBeOnTheScreen();
+});
+
+it('the same phrase reaching the open add route again counts as a new arrival', async () => {
+  await renderNew('/wardrobe/new?phrase=gomlek');
+  expect(await screen.findByText('Arrival 1')).toBeOnTheScreen();
+
+  await act(async () => router.navigate('/wardrobe/new?phrase=gomlek'));
+
+  expect(await screen.findByText('Arrival 2')).toBeOnTheScreen();
+  expect(screen.getByText('Form gomlek route -')).toBeOnTheScreen();
 });

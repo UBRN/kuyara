@@ -151,6 +151,7 @@ export function WardrobeNewItemRoute({
   defaultCategory,
   defaultEntryState,
   initialPhrase,
+  initialPhraseArrival,
 }: Readonly<{
   /** The Closet category the add started from; the type chooser opens on it (O9). */
   defaultCategory?: StructuralCategory;
@@ -158,6 +159,8 @@ export function WardrobeNewItemRoute({
   defaultEntryState?: WardrobeEntryState;
   /** A phrase the add arrived with (Siri, ADR 0042); the form applies it once. */
   initialPhrase?: string;
+  /** Which arrival `initialPhrase` is; a new number is a new arrival of the same words. */
+  initialPhraseArrival?: number;
 }>) {
   const {
     createItem,
@@ -194,6 +197,7 @@ export function WardrobeNewItemRoute({
       defaultCategory={defaultCategory}
       defaultEntryState={defaultEntryState}
       initialPhrase={initialPhrase}
+      initialPhraseArrival={initialPhraseArrival}
       isBusy={state.isMutating}
       mode="create"
       onCancel={guard.cancel}

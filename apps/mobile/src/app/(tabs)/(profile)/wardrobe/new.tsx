@@ -10,6 +10,7 @@ import {
   parseStructuralCategoryParam,
   parseWardrobeEntryStateParam,
 } from '@/features/wardrobe/application/wardrobe-form';
+import { shortenWardrobeName } from '@/features/wardrobe/domain/wardrobe-name';
 import { WardrobeNewItemRoute } from '@/features/wardrobe/presentation/wardrobe-item-routes';
 import { useMessages } from '@/localization/use-messages';
 
@@ -22,10 +23,23 @@ export default function WardrobeNewRoute() {
     filter?: string;
     phrase?: string | string[];
   }>();
-  // ADR 0042: Siri's Closet add arrives with `phrase`. The route reads it once for the form
-  // and drops it from its params, so it stays in no URL, history entry or later render. A link
-  // that repeats the parameter arrives as a list and hands the form no phrase.
-  const [initialPhrase] = useState(typeof phrase === 'string' ? phrase : undefined);
+  // ADR 0042: Siri's Closet add arrives with `phrase`. The route hands each arriving phrase to
+  // the form, cut to the longest name the form takes, and drops it from its params, so it stays
+  // in no URL, history entry or later render. A link that repeats the parameter arrives as a
+  // list and hands the form no phrase.
+  const arrivedPhrase = typeof phrase === 'string' ? phrase : undefined;
+  // Each arrival is counted, so the same words arriving again still reach the form.
+  const [arrival, setArrival] = useState(
+    arrivedPhrase === undefined ? undefined : { phrase: shortenWardrobeName(arrivedPhrase), count: 1 },
+  );
+  // A link that reaches the add route already open updates its params instead of mounting it.
+  const [seenPhrase, setSeenPhrase] = useState(arrivedPhrase);
+  if (arrivedPhrase !== seenPhrase) {
+    setSeenPhrase(arrivedPhrase);
+    if (arrivedPhrase !== undefined) {
+      setArrival({ phrase: shortenWardrobeName(arrivedPhrase), count: (arrival?.count ?? 0) + 1 });
+    }
+  }
   // The screen's own navigation, not the global router: a cold-start deep link mounts this
   // screen before the root navigator reports ready, and the router refuses until then.
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
@@ -56,7 +70,8 @@ export default function WardrobeNewRoute() {
       <WardrobeNewItemRoute
         defaultCategory={resolveVisibleCategory(categories, parseStructuralCategoryParam(category))}
         defaultEntryState={parseWardrobeEntryStateParam(filter)}
-        initialPhrase={initialPhrase}
+        initialPhrase={arrival?.phrase}
+        initialPhraseArrival={arrival?.count}
       />
     </>
   );

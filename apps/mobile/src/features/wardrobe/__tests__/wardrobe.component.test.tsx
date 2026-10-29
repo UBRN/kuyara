@@ -346,12 +346,16 @@ function CreateForm({
   clothingPreference = null,
   confirmation,
   initialPhrase,
+  initialPhraseArrival,
+  isBusy = false,
   onCreate = async () => undefined,
   onDirtyChange = () => undefined,
 }: Readonly<{
   clothingPreference?: 'womens' | 'mens' | null;
   confirmation?: WardrobeConfirmation;
   initialPhrase?: string;
+  initialPhraseArrival?: number;
+  isBusy?: boolean;
   onCreate?: (input: Record<string, unknown>) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
 }>) {
@@ -361,7 +365,8 @@ function CreateForm({
         clothingPreference={clothingPreference}
         confirmation={confirmation}
         initialPhrase={initialPhrase}
-        isBusy={false}
+        initialPhraseArrival={initialPhraseArrival}
+        isBusy={isBusy}
         mode="create"
         onCreate={onCreate}
         onDirtyChange={onDirtyChange}
@@ -2211,6 +2216,39 @@ test('an initial phrase shows in the field and fills the type and colour on arri
   await result.rerender(<CreateForm clothingPreference="mens" initialPhrase="lacivert keten gömlek" onCreate={onCreate} />);
   expect(announce).toHaveBeenCalledTimes(1);
   expect(onCreate).not.toHaveBeenCalled();
+});
+
+test('a new initial phrase replaces the field and fills the form again', async () => {
+  jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await render(<CreateForm clothingPreference="mens" initialPhrase="lacivert keten gömlek" />);
+
+  await result.rerender(<CreateForm clothingPreference="mens" initialPhrase="siyah kazak" />);
+
+  expect(result.getByTestId(PHRASE)).toHaveProp('value', 'siyah kazak');
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent(messages.en.catalog['catalog.garment_type.sweater.name']);
+  expect(result.getByTestId('wardrobe-color-black').props.accessibilityState.selected).toBe(true);
+});
+
+test('the same phrase arriving again fills the form again over the person\'s edit', async () => {
+  jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await render(<CreateForm clothingPreference="mens" initialPhrase="siyah kazak" initialPhraseArrival={1} />);
+  await fireEvent.changeText(result.getByTestId(PHRASE), 'lacivert keten gömlek');
+  await fireEvent(result.getByTestId(PHRASE), 'submitEditing');
+
+  await result.rerender(<CreateForm clothingPreference="mens" initialPhrase="siyah kazak" initialPhraseArrival={2} />);
+
+  expect(result.getByTestId(PHRASE)).toHaveProp('value', 'siyah kazak');
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent(messages.en.catalog['catalog.garment_type.sweater.name']);
+});
+
+test('a phrase that arrives while the form is busy fills it once the form is free', async () => {
+  jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation(() => undefined);
+  const result = await render(<CreateForm clothingPreference="mens" initialPhrase="siyah kazak" isBusy />);
+  expect(result.queryByTestId('wardrobe-type-row')).not.toBeOnTheScreen();
+
+  await result.rerender(<CreateForm clothingPreference="mens" initialPhrase="siyah kazak" />);
+
+  expect(result.getByTestId('wardrobe-type-row-name')).toHaveTextContent(messages.en.catalog['catalog.garment_type.sweater.name']);
 });
 
 test('an initial phrase it cannot read shows the not-understood line and leaves the pickers open', async () => {

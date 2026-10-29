@@ -75,6 +75,8 @@ type WardrobeItemFormScreenProps = Readonly<{
   defaultCategory?: StructuralCategory;
   /** A phrase the add arrived with (Siri, ADR 0042); applied once as if submitted. */
   initialPhrase?: string;
+  /** Which arrival `initialPhrase` is; a new number is a new arrival of the same words. */
+  initialPhraseArrival?: number;
   isBusy: boolean;
   confirmation?: WardrobeConfirmation;
   photoPreviewUri?: string | null;
@@ -180,6 +182,7 @@ export function WardrobeItemFormScreen({
   defaultCategory,
   defaultEntryState = 'owned',
   initialPhrase,
+  initialPhraseArrival = 0,
   isBusy,
   item,
   mode,
@@ -222,6 +225,13 @@ export function WardrobeItemFormScreen({
   const [unreadablePhotoUri, setUnreadablePhotoUri] = useState<string | null>(null);
   // ADR 0042: the phrase lives only in this state; it is never sent, logged or stored.
   const [phrase, setPhrase] = useState(initialPhrase ?? '');
+  // A later arrival that reaches the open form replaces the phrase in the field.
+  const arrivalKey = `${initialPhraseArrival}:${initialPhrase ?? ''}`;
+  const [shownArrival, setShownArrival] = useState(arrivalKey);
+  if (arrivalKey !== shownArrival) {
+    setShownArrival(arrivalKey);
+    if (initialPhrase) setPhrase(initialPhrase);
+  }
   // Why the phrase filled nothing, with the types to choose from when it named several.
   const [phraseProblem, setPhraseProblem] =
     useState<Extract<WardrobePhraseFill, { kind: 'not-understood' }> | null>(null);
@@ -371,9 +381,9 @@ export function WardrobeItemFormScreen({
   };
 
   // `chosenTypeId` is a type the phrase offered and the person chose; it fills like a match.
-  const applyPhrase = (chosenTypeId: GarmentTypeId | null) => {
+  const applyPhrase = (chosenTypeId: GarmentTypeId | null, typed = phrase) => {
     if (busy) return;
-    const fill = fillWardrobeFormFromPhrase(values, phrase, clothingPreference, phraseNameRef.current, chosenTypeId);
+    const fill = fillWardrobeFormFromPhrase(values, typed, clothingPreference, phraseNameRef.current, chosenTypeId);
     setPhraseProblem(fill?.kind === 'not-understood' ? fill : null);
     if (fill?.kind !== 'filled') return;
     // A phrase's colour is the person's choice; without one the piece keeps a picked colour
@@ -395,11 +405,15 @@ export function WardrobeItemFormScreen({
     }));
   };
 
-  // The phrase the add arrived with fills the form once on arrival, as a submitted field does.
-  const applyInitialPhrase = useEffectEvent(() => applyPhrase(null));
+  // Each arrival fills the form once, as a submitted field does; while the form is busy only the
+  // latest one waits, and it fills the form once the form is free.
+  const filledArrivalRef = useRef<string | null>(null);
+  const applyInitialPhrase = useEffectEvent((arrived: string) => applyPhrase(null, arrived));
   useEffect(() => {
-    if (initialPhrase) applyInitialPhrase();
-  }, [initialPhrase]);
+    if (!initialPhrase || busy || filledArrivalRef.current === arrivalKey) return;
+    filledArrivalRef.current = arrivalKey;
+    applyInitialPhrase(initialPhrase);
+  }, [arrivalKey, busy, initialPhrase]);
 
   const textInputStyle = [
     styles.textInput,
