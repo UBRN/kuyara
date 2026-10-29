@@ -35,7 +35,7 @@
     "expo-task-manager": "~57.0.21",
     "expo-updates": "~57.0.26",
     "expo-web-browser": "~57.0.3",
-    "posthog-react-native": "4.81.2",
+    "posthog-react-native": "4.81.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
